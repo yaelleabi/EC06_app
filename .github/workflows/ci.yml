@@ -43,6 +43,9 @@ jobs:
     name: Build Docker Image
     needs: quality
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -54,15 +57,32 @@ jobs:
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Build Docker Image
+      - name: Downcase repository owner and name
+        id: repo_name
+        run: |
+          echo "owner_lowercase=${OWNER,,}" >> $GITHUB_OUTPUT
+          echo "repo_lowercase=${REPO,,}" >> $GITHUB_OUTPUT
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: false
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
           tags: |
-            skillhub-api:${{ steps.vars.outputs.sha_short }}
-            skillhub-api:latest
+            ghcr.io/${{ steps.repo_name.outputs.owner_lowercase }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ steps.vars.outputs.sha_short }}
+            ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}/{1}:latest', steps.repo_name.outputs.owner_lowercase, steps.repo_name.outputs.repo_lowercase) || '' }}
 
   deploy:
     name: Deploy Application
