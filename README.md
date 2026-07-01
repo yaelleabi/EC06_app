@@ -26,3 +26,12 @@ Ce starter ne contient **ni** `Dockerfile`, **ni** `docker-compose.yml`, **ni** 
 
 - Node.js 20+
 - Docker et Docker Compose (à utiliser une fois que vous aurez écrit votre `Dockerfile` et `docker-compose.yml`)
+
+## Stratégie de branches (GitFlow)
+
+Pour ce projet, nous mettons en place une stratégie **GitFlow simplifiée** :
+
+- **`main`** : Branche de production. Elle est protégée pour empêcher les pushs directs. Toute modification doit passer par une Pull Request (PR) validée et testée depuis la branche `develop`.
+- **`develop`** : Branche d'intégration des développements. C'est la branche de travail principale où les fonctionnalités validées sont regroupées avant d'être envoyées sur `main`.
+- **`feature/<nom>`** : Branches éphémères créées à partir de `develop` pour réaliser une tâche spécifique (ex: `feature/dockerfile`, `feature/ci-pipeline`). Elles sont fusionnées dans `develop` via une Pull Request une fois les tests et la CI validés.
+
