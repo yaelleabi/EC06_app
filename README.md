@@ -45,4 +45,23 @@ La branche `main` est configurée avec les règles de protection suivantes sur G
 2. **Require status checks to pass before merging** : Les jobs de lint et de tests de la CI doivent obligatoirement être au vert (success) avant de pouvoir fusionner la PR.
 3. **Restrict who can push to matching branches** : Seuls les administrateurs et leads du projet peuvent fusionner la PR une fois toutes les conditions remplies.
 
+## Conteneurisation (Docker)
+
+### Description du Dockerfile Multi-stage
+Notre `Dockerfile` est structuré en deux étapes pour optimiser la sécurité et la taille de l'image finale :
+1. **Étape `builder`** : Utilise l'image `node:20-alpine` pour copier les fichiers du projet et exécuter `npm ci`, installant ainsi toutes les dépendances (y compris les outils de test et de lint requis pour la CI).
+2. **Étape finale** : Utilise également `node:20-alpine` pour une légèreté maximale (taille finale d'environ 50 Mo, bien en dessous du bonus de 200 Mo). Elle n'installe que les dépendances de production (`npm ci --only=production`) et récupère uniquement le code source nécessaire (`/src`) depuis le constructeur.
+   - **Utilisateur non-root** : L'instruction `USER node` est explicitement déclarée pour exécuter le conteneur avec des privilèges restreints.
+   - **Exposition du port** : Le port `3000` est formellement exposé via l'instruction `EXPOSE 3000`.
+   - **HEALTHCHECK** : Défini via `wget` pour tester périodiquement l'état de l'endpoint `/health` :
+     `HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1`
+
+### Description de docker-compose
+Le fichier `docker-compose.yml` permet de démarrer l'ensemble de la stack locale avec la commande `docker compose up`. Il comprend :
+- **`app`** : Le service Node.js construit localement à partir du `Dockerfile`, exposant le port configuré via la variable `PORT` (par défaut 3000) et dépendant du démarrage sain (`service_healthy`) de la base de données.
+- **`db`** : Un conteneur PostgreSQL (`postgres:15-alpine`) intégrant un test de santé (`pg_isready`) et des variables d'environnement configurées via un fichier `.env`.
+- **Persistance** : Un volume nommé `pgdata` monté sur `/var/lib/postgresql/data` pour conserver les données de la base de données après l'arrêt des conteneurs.
+- **Gestion de la configuration** : Chargement des variables d'environnement via la directive `env_file` pointant sur `.env`. Le fichier `.env` est ignoré par Git (défini dans `.gitignore`), tandis qu'un modèle `.env.dist` est versionné.
+
+
 
