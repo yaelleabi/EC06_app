@@ -63,5 +63,59 @@ Le fichier `docker-compose.yml` permet de démarrer l'ensemble de la stack local
 - **Persistance** : Un volume nommé `pgdata` monté sur `/var/lib/postgresql/data` pour conserver les données de la base de données après l'arrêt des conteneurs.
 - **Gestion de la configuration** : Chargement des variables d'environnement via la directive `env_file` pointant sur `.env`. Le fichier `.env` est ignoré par Git (défini dans `.gitignore`), tandis qu'un modèle `.env.dist` est versionné.
 
+## Architecture du Pipeline CI/CD
+
+Le pipeline CI/CD est implémenté avec **GitHub Actions** (`.github/workflows/ci.yml`) et s'articule autour de trois jobs : `quality`, `build` et `deploy`.
+
+### Schéma du workflow (Mermaid)
+
+```mermaid
+flowchart TD
+    %% Déclencheurs
+    TriggerPush[Push sur n'importe quelle branche] --> JobQuality
+    TriggerPR[Pull Request vers main ou develop] --> JobQuality
+
+    %% Job Quality
+    subgraph JobQuality [Job 1: Quality]
+        direction TB
+        Lint[Vérification ESLint dans Docker]
+        Test[Tests unitaires Jest dans Docker]
+        Artifact[Publication des résultats de tests]
+        Lint --> Test --> Artifact
+    end
+
+    %% Job Build
+    JobQuality -->|Succès| JobBuild
+
+    subgraph JobBuild [Job 2: Build]
+        direction TB
+        DockerBuild[docker build + tag commit SHA]
+    end
+
+    %% Job Deploy
+    JobBuild -->|Succès & sur branche main| JobDeploy
+
+    subgraph JobDeploy [Job 3: Deploy]
+        direction TB
+        RunDeployScript[Exécution de deploy.sh]
+        DeployArtifact[Publication du deploy.log]
+        RunDeployScript --> DeployArtifact
+    end
+```
+
+### Détails des jobs
+1. **Quality (Lint + Test)** : 
+   - S'exécute sur toutes les branches à chaque push et Pull Request.
+   - Initialise le fichier `.env` à partir de `.env.dist`.
+   - Lance ESLint et Jest **à l'intérieur du conteneur Docker** via `docker compose run --rm app`.
+   - Exporte et publie les logs de tests comme artefact GitHub (`test-results`).
+2. **Build** :
+   - S'exécute uniquement si le job `quality` réussit.
+   - Construit l'image Docker de production et lui attribue deux tags : le SHA court du commit actuel et `latest`.
+3. **Deploy (Simulé)** :
+   - Déclenché uniquement sur la branche `main` après réussite du build.
+   - Exécute le script `deploy.sh` qui simule le déploiement local de l'application et exporte le fichier `deploy.log` comme artefact.
+
+
 
 
