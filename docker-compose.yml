@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: builder
     container_name: skillhub-app
     ports:
       - "${PORT:-3000}:3000"
