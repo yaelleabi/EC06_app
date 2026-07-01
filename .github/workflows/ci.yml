@@ -83,6 +83,8 @@ jobs:
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.owner_lowercase }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ steps.vars.outputs.sha_short }}
             ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}/{1}:latest', steps.repo_name.outputs.owner_lowercase, steps.repo_name.outputs.repo_lowercase) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy Application

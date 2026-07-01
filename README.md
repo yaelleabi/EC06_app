@@ -1,5 +1,7 @@
 # SkillHub API — starter EC06
 
+[![CI/CD Pipeline](https://github.com/yaelleabi/EC06_app/actions/workflows/ci.yml/badge.svg)](https://github.com/yaelleabi/EC06_app/actions/workflows/ci.yml)
+
 Mini API Express (Node.js 20) qui sert de base à l'épreuve EC06.
 
 ## Endpoints
