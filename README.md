@@ -91,7 +91,9 @@ flowchart TD
 
     subgraph JobBuild [Job 2: Build]
         direction TB
-        DockerBuild[docker build + tag commit SHA]
+        DockerBuild[docker build & load]
+        TrivyScan[Scan de vulnérabilités via Trivy]
+        DockerBuild --> TrivyScan
     end
 
     %% Job Deploy
@@ -111,9 +113,11 @@ flowchart TD
    - Initialise le fichier `.env` à partir de `.env.dist`.
    - Lance ESLint et Jest **à l'intérieur du conteneur Docker** via `docker compose run --rm app`.
    - Exporte et publie les logs de tests comme artefact GitHub (`test-results`).
-2. **Build** :
+2. **Build & Scan** :
    - S'exécute uniquement si le job `quality` réussit.
-   - Construit l'image Docker de production et lui attribue deux tags : le SHA court du commit actuel et `latest`.
+   - Construit l'image Docker de production et la charge localement.
+   - **Scan de sécurité (Trivy)** : Utilise l'action `aquasecurity/trivy-action` pour scanner l'image à la recherche de failles de sécurité de niveau `HIGH` et `CRITICAL`.
+   - Si le scan réussit et que le déclencheur est sur la branche `main`, pousse l'image sur `ghcr.io` avec les tags (SHA court et `latest`).
 3. **Deploy (Simulé)** :
    - Déclenché uniquement sur la branche `main` après réussite du build.
    - Exécute le script `deploy.sh` qui simule le déploiement local de l'application et exporte le fichier `deploy.log` comme artefact.
