@@ -31,35 +31,35 @@ Ce starter ne contient **ni** `Dockerfile`, **ni** `docker-compose.yml`, **ni** 
 
 ## Stratégie de branches (GitFlow)
 
-Pour ce projet, nous mettons en place une stratégie **GitFlow simplifiée**. 
+Pour ce projet, nous mettons en place une stratégie **GitFlow simplifiée**.
 
 ### Justification de la stratégie
+
 Le choix de GitFlow simplifiée se justifie par le besoin d'avoir une séparation claire entre la production (`main`), la branche d'intégration de développement (`develop`), et les tâches en cours (`feature/*`). Cela permet de garantir que la branche `main` reste toujours stable et testée, tout en permettant aux développeurs de travailler de manière isolée sur leurs fonctionnalités avant de les intégrer.
 
 ### Structure des branches
+
 - **`main`** : Branche de production. Elle contient le code stable et prêt à être déployé. Tout push direct y est interdit.
 - **`develop`** : Branche principale de développement et d'intégration. Les fonctionnalités terminées et testées y sont fusionnées.
-- **`feature/<nom>`** : Branches éphémères créées depuis `develop` pour le développement d'une fonctionnalité spécifique (ex : `feature/dockerfile`, `feature/ci-pipeline`). Elles sont ensuite fusionnées dans `develop` via une Pull Request (PR).
-
-### Protection de la branche `main`
-La branche `main` est configurée avec les règles de protection suivantes sur GitHub (décrites ici à défaut de pouvoir être totalement appliquées sans droits administrateur avancés) :
-1. **Require a pull request before merging** : Interdiction de push directement sur `main`. Tout changement doit obligatoirement faire l'objet d'une Pull Request (PR).
-2. **Require status checks to pass before merging** : Les jobs de lint et de tests de la CI doivent obligatoirement être au vert (success) avant de pouvoir fusionner la PR.
-3. **Restrict who can push to matching branches** : Seuls les administrateurs et leads du projet peuvent fusionner la PR une fois toutes les conditions remplies.
+- **`feature/<nom>`** : Branches éphémères créées depuis `develop`. Elles sont ensuite fusionnées dans `develop` .
 
 ## Conteneurisation (Docker)
 
 ### Description du Dockerfile Multi-stage
+
 Notre `Dockerfile` est structuré en deux étapes pour optimiser la sécurité et la taille de l'image finale :
+
 1. **Étape `builder`** : Utilise l'image `node:20-alpine` pour copier les fichiers du projet et exécuter `npm ci`, installant ainsi toutes les dépendances (y compris les outils de test et de lint requis pour la CI).
 2. **Étape finale** : Utilise également `node:20-alpine` pour une légèreté maximale (taille finale d'environ 50 Mo, bien en dessous du bonus de 200 Mo). Elle n'installe que les dépendances de production (`npm ci --only=production`) et récupère uniquement le code source nécessaire (`/src`) depuis le constructeur.
    - **Utilisateur non-root** : L'instruction `USER node` est explicitement déclarée pour exécuter le conteneur avec des privilèges restreints.
-   - **Exposition du port** : Le port `3000` est formellement exposé via l'instruction `EXPOSE 3000`.
+   - **Exposition du port** : Le port `3000` est exposé via l'instruction `EXPOSE 3000`.
    - **HEALTHCHECK** : Défini via `wget` pour tester périodiquement l'état de l'endpoint `/health` :
-     `HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1`
+     `
 
 ### Description de docker-compose
+
 Le fichier `docker-compose.yml` permet de démarrer l'ensemble de la stack locale avec la commande `docker compose up`. Il comprend :
+
 - **`app`** : Le service Node.js construit localement à partir du `Dockerfile`, exposant le port configuré via la variable `PORT` (par défaut 3000) et dépendant du démarrage sain (`service_healthy`) de la base de données.
 - **`db`** : Un conteneur PostgreSQL (`postgres:15-alpine`) intégrant un test de santé (`pg_isready`) et des variables d'environnement configurées via un fichier `.env`.
 - **Persistance** : Un volume nommé `pgdata` monté sur `/var/lib/postgresql/data` pour conserver les données de la base de données après l'arrêt des conteneurs.
@@ -69,46 +69,11 @@ Le fichier `docker-compose.yml` permet de démarrer l'ensemble de la stack local
 
 Le pipeline CI/CD est implémenté avec **GitHub Actions** (`.github/workflows/ci.yml`) et s'articule autour de trois jobs : `quality`, `build` et `deploy`.
 
-### Schéma du workflow (Mermaid)
-
-```mermaid
-flowchart TD
-    %% Déclencheurs
-    TriggerPush[Push sur n'importe quelle branche] --> JobQuality
-    TriggerPR[Pull Request vers main ou develop] --> JobQuality
-
-    %% Job Quality
-    subgraph JobQuality [Job 1: Quality]
-        direction TB
-        Lint[Vérification ESLint dans Docker]
-        Test[Tests unitaires Jest dans Docker]
-        Artifact[Publication des résultats de tests]
-        Lint --> Test --> Artifact
-    end
-
-    %% Job Build
-    JobQuality -->|Succès| JobBuild
-
-    subgraph JobBuild [Job 2: Build]
-        direction TB
-        DockerBuild[docker build & load]
-        TrivyScan[Scan de vulnérabilités via Trivy]
-        DockerBuild --> TrivyScan
-    end
-
-    %% Job Deploy
-    JobBuild -->|Succès & sur branche main| JobDeploy
-
-    subgraph JobDeploy [Job 3: Deploy]
-        direction TB
-        RunDeployScript[Exécution de deploy.sh]
-        DeployArtifact[Publication du deploy.log]
-        RunDeployScript --> DeployArtifact
-    end
-```
+Ce pipeline s'exécute automatiquement lors de chaque modification poussée sur le dépôt ou lors de l'ouverture d'une Pull Request. Il permet de garantir en continu que le code respecte les standards de qualité, d'analyser la sécurité de l'image de production et d'automatiser le déploiement final lorsque les modifications sont validées sur la branche principale.
 
 ### Détails des jobs
-1. **Quality (Lint + Test)** : 
+
+1. **Quality (Lint + Test)** :
    - S'exécute sur toutes les branches à chaque push et Pull Request.
    - Initialise le fichier `.env` à partir de `.env.dist`.
    - Lance ESLint et Jest **à l'intérieur du conteneur Docker** via `docker compose run --rm app`.
@@ -117,11 +82,7 @@ flowchart TD
    - S'exécute uniquement si le job `quality` réussit.
    - Construit l'image Docker de production et la charge localement.
    - **Scan de sécurité (Trivy)** : Utilise l'action `aquasecurity/trivy-action` pour scanner l'image à la recherche de failles de sécurité de niveau `HIGH` et `CRITICAL`.
-   - Si le scan réussit et que le déclencheur est sur la branche `main`, pousse l'image sur `ghcr.io` avec les tags (SHA court et `latest`).
-3. **Deploy (Simulé)** :
+   - Si le scan réussit et que le déclencheur est sur la branche `main`, pousse l'image sur Docker Hub avec les tags (SHA court et `latest`).
+3. **Deploy** :
    - Déclenché uniquement sur la branche `main` après réussite du build.
    - Exécute le script `deploy.sh` qui simule le déploiement local de l'application et exporte le fichier `deploy.log` comme artefact.
-
-
-
-
