@@ -29,9 +29,20 @@ Ce starter ne contient **ni** `Dockerfile`, **ni** `docker-compose.yml`, **ni** 
 
 ## Stratégie de branches (GitFlow)
 
-Pour ce projet, nous mettons en place une stratégie **GitFlow simplifiée** :
+Pour ce projet, nous mettons en place une stratégie **GitFlow simplifiée**. 
 
-- **`main`** : Branche de production. Elle est protégée pour empêcher les pushs directs. Toute modification doit passer par une Pull Request (PR) validée et testée depuis la branche `develop`.
-- **`develop`** : Branche d'intégration des développements. C'est la branche de travail principale où les fonctionnalités validées sont regroupées avant d'être envoyées sur `main`.
-- **`feature/<nom>`** : Branches éphémères créées à partir de `develop` pour réaliser une tâche spécifique (ex: `feature/dockerfile`, `feature/ci-pipeline`). Elles sont fusionnées dans `develop` via une Pull Request une fois les tests et la CI validés.
+### Justification de la stratégie
+Le choix de GitFlow simplifiée se justifie par le besoin d'avoir une séparation claire entre la production (`main`), la branche d'intégration de développement (`develop`), et les tâches en cours (`feature/*`). Cela permet de garantir que la branche `main` reste toujours stable et testée, tout en permettant aux développeurs de travailler de manière isolée sur leurs fonctionnalités avant de les intégrer.
+
+### Structure des branches
+- **`main`** : Branche de production. Elle contient le code stable et prêt à être déployé. Tout push direct y est interdit.
+- **`develop`** : Branche principale de développement et d'intégration. Les fonctionnalités terminées et testées y sont fusionnées.
+- **`feature/<nom>`** : Branches éphémères créées depuis `develop` pour le développement d'une fonctionnalité spécifique (ex : `feature/dockerfile`, `feature/ci-pipeline`). Elles sont ensuite fusionnées dans `develop` via une Pull Request (PR).
+
+### Protection de la branche `main`
+La branche `main` est configurée avec les règles de protection suivantes sur GitHub (décrites ici à défaut de pouvoir être totalement appliquées sans droits administrateur avancés) :
+1. **Require a pull request before merging** : Interdiction de push directement sur `main`. Tout changement doit obligatoirement faire l'objet d'une Pull Request (PR).
+2. **Require status checks to pass before merging** : Les jobs de lint et de tests de la CI doivent obligatoirement être au vert (success) avant de pouvoir fusionner la PR.
+3. **Restrict who can push to matching branches** : Seuls les administrateurs et leads du projet peuvent fusionner la PR une fois toutes les conditions remplies.
+
 
